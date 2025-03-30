@@ -17,7 +17,7 @@ let groupCount = groups.length + 1;
 
 let users = [];
 users.push({id: 1, username: "ales", password: "Heslo123"});
-users.push({id: 2, username: "mysak", password: "tykraso"});
+users.push({id: 2, username: "pepa", password: "heslicko"});
 let userCount = users.length + 1;
 
 let passwords = [];
