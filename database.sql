@@ -26,6 +26,6 @@ CREATE TABLE "password" (
 CREATE TABLE "log" (
                        "log_id" SERIAL PRIMARY KEY,
                        "date" TIMESTAMP NOT NULL,
-                       "user_id" INT REFERENCES "user"("user_id") ON DELETE SET NULL,
+                       "group_id" INT REFERENCES "group"("group_id") ON DELETE SET NULL,
                        "description" TEXT NOT NULL
 );
