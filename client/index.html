@@ -31,7 +31,7 @@
             .then(data => {
                 groupSelectElement.innerHTML = "";
                 for (let group of data) {
-                    groupSelectElement.innerHTML += `<option value="${group.id}">${group.name}</option>`;
+                    groupSelectElement.innerHTML += `<option value="${group.group_id}">${group.name}</option>`;
                 }
             })
             .catch(error => console.log(error));
@@ -51,11 +51,11 @@
             .then(data => {
                 passwordsElement.innerHTML = "<ul>";
                 for (let password of data) {
-                    let tmp = ` ***** / <button showPassword="${password.id}">🕶️️</button>`;
-                    if (password.id == showId) {
+                    let tmp = ` ***** / <button showPassword="${password.password_id}">🕶️️</button>`;
+                    if (password.password_id == showId) {
                         tmp = `${visiblePass} / <button showPassword="0">👁️️</button>`;
                     }
-                    passwordsElement.innerHTML += `<li>${password.id} / ${password.description} / ${password.username} / ${tmp}</li>`;
+                    passwordsElement.innerHTML += `<li>${password.password_id} / ${password.description} / ${password.username} / ${tmp}</li>`;
                 }
                 passwordsElement.innerHTML += "</ul>";
             })
@@ -104,7 +104,7 @@
                 description: document.getElementById("newPassDesc").value,
                 username: document.getElementById("newPassUser").value,
                 password: document.getElementById("newPassPass").value,
-                groupId: document.getElementById("newPassGroup").value
+                group_id: document.getElementById("newPassGroup").value
             })
         })
             .then(response => response.json())
