@@ -1,6 +1,6 @@
 INSERT INTO "user" ("username", "password") VALUES
                                                 ('ales', 'Heslo123'),
-                                                ('mysak', 'tykraso');
+                                                ('pepa', 'heslicko');
 
 INSERT INTO "group" ("name") VALUES
                                  ('pristupy spolecne'),
