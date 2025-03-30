@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const pg = require("./pg.js");
+const pg = require("./my-pg.js");
 
 const app = express();
 
@@ -82,7 +82,7 @@ app.post("/passwords", async (req, res) => {
 app.get("/groups", async (req, res) => {
     const result = await pg.query(
         `SELECT *
-         FROM [group]
+         FROM "group"
                   JOIN "group_user" ON "group"."group_id" = "group_user"."group_id"
          WHERE "group_user"."user_id" = $1`,
         [req.userId]
