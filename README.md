@@ -22,32 +22,38 @@ Pro týmy poskytuje snadný způsob, jak sdílet přístupové údaje napříkla
 
 Tato entita reprezentuje jednotlivého uživatele systému a jeho interakci s API.  
 - **Atributy:**  
-  - ID uživatele
-  - Uživatelské jméno
-  - Heslo
+  - `user_id` (serial, primární klíč) – jedinečný identifikátor uživatele
+  - `username` (text, unique, not null) – uživatelské jméno
+  - `password` (text, not null) – uživatelské heslo
 
 ## Skupina 
 
 Tato entita umožňuje vytváření skupin, ve kterých mohou uživatelé sdílet hesla. 
 - **Atributy:**
-  - ID skupiny
-  - Název skupiny
-  - Seznam členů
+  - `group_id` (serial, primární klíč) – jedinečný identifikátor skupiny
+  - `name` (text, unique, not null) – název skupiny
+
+## Vazba mezi uživatelem a skupinou
+- **Atributy:**
+  - `group_id` (int, cizí klíč na `group(group_id)`, on delete cascade) – id skupiny
+  - `user_id` (int, cizí klíč na `user(user_id)`, on delete cascade) – id uživatele
+  - primární klíč: (`group_id`, `user_id`)
 
 ## Heslo
 
 Entita hesla slouží k ukládání a správě přístupových údajů jednotlivých uživatelů nebo skupin.  
 - **Atributy:**  
-  - ID hesla
-  - URL nebo popis
-  - Uživatelské jméno
-  - Heslo
-  - Metadata (datum vytvoření, poslední aktualizace)
+  - `password_id` (serial, primární klíč) – jedinečný identifikátor hesla
+  - `description` (text, not null) – popis nebo url související s heslem
+  - `group_id` (int, cizí klíč na `group(group_id)`, on delete cascade) – id skupiny, které heslo patří
+  - `username` (text, not null) – uživatelské jméno pro přihlášení
+  - `password` (text, not null) – uživatelské heslo pro přihlášení
 
 ## Log
 
 Tato entita zajišťuje zaznamenávání všech akcí, které proběhnou v systému.  
 - **Atributy:**
-  - ID uživatele
-  - Typ akce (např. „zobrazení hesla“, „úprava hesla“)
-  - Datum akce
+  - `log_id` (serial, primární klíč) – jedinečný identifikátor záznamu
+  - `date` (timestamp, not null) – datum a čas akce
+  - `group_id` (int, cizí klíč na `group(group_id)`, on delete set null) – skupina, které se záznam týká
+  - `description` (text, not null) – popis akce
