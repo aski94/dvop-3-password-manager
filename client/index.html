@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Document</title>
+</head>
+<body>
+<h2>Passwords:</h2>
+<div id="passwords"></div>
+
+<h2>Add New Password</h2>
+<form id="passwordForm">
+    <input type="text" id="newPassDesc" placeholder="Description" required>
+    <input type="text" id="newPassUser" placeholder="Username" required>
+    <input type="password" id="newPassPass" placeholder="Password" required>
+    <select id="newPassGroup"></select>
+    <button type="submit">Add Password</button>
+</form>
+
+<script>
+    const groupSelectElement = document.querySelector("#newPassGroup");
+
+    // Function to refresh the group select options
+    const refreshGroups = () => {
+        fetch("http://localhost:3000/groups", {
+            method: "GET",
+            mode: "cors",
+        })
+            .then(response => response.json())
+            .then(data => {
+                groupSelectElement.innerHTML = "";
+                for (let group of data) {
+                    groupSelectElement.innerHTML += `<option value="${group.id}">${group.name}</option>`;
+                }
+            })
+            .catch(error => console.log(error));
+    };
+
+    refreshGroups();
+
+    const passwordsElement = document.querySelector("#passwords");
+
+    // Fetch password list
+    const fetchPasswords = (showId, visiblePass = "") => {
+        fetch("http://localhost:3000/passwords", {
+            method: "GET",
+            mode: "cors"
+        })
+            .then(response => response.json())
+            .then(data => {
+                passwordsElement.innerHTML = "<ul>";
+                for (let password of data) {
+                    let tmp = ` ***** / <button showPassword="${password.id}">🕶️️</button>`;
+                    if (password.id == showId) {
+                        tmp = `${visiblePass} / <button showPassword="0">👁️️</button>`;
+                    }
+                    passwordsElement.innerHTML += `<li>${password.id} / ${password.description} / ${password.username} / ${tmp}</li>`;
+                }
+                passwordsElement.innerHTML += "</ul>";
+            })
+            .catch(error => console.log(error));
+    }
+
+    // Fetch single password
+    const fetchPassword = (id) => {
+        fetch("http://localhost:3000/passwords/" + id, {
+            method: "GET",
+            mode: "cors"
+        })
+            .then(response => response.json())
+            .then(data => {
+                fetchPasswords(id, data.password);
+            })
+            .catch(error => console.log(error));
+    }
+
+    fetchPasswords();
+
+    document.addEventListener("click", (e) => {
+        let attr = e.target.getAttribute("showPassword");
+        if (attr) {
+            if (attr === "0") {
+                // Reset to hidden passwords
+                fetchPasswords();
+            } else {
+                // Fetch only the specific password
+                fetchPassword(attr);
+            }
+        }
+    });
+
+    const newPasswordForm = document.querySelector("#passwordForm");
+    newPasswordForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        fetch("http://localhost:3000/passwords", {
+            method: "POST",
+            mode: "cors",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                description: document.getElementById("newPassDesc").value,
+                username: document.getElementById("newPassUser").value,
+                password: document.getElementById("newPassPass").value,
+                groupId: document.getElementById("newPassGroup").value
+            })
+        })
+            .then(response => response.json())
+            .then(() => {
+                fetchPasswords();
+                newPasswordForm.reset();
+            })
+            .catch(error => console.log(error));
+    });
+
+</script>
+
+</body>
+</html>

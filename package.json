@@ -1,0 +1,15 @@
+{
+  "name": "password-manager",
+  "version": "1.0.0",
+  "description": "Projekt se zaměřuje na vývoj API služby pro správu hesel, která umožní bezpečné ukládání, zobrazení, úpravu a sdílení hesel mezi jednotlivci i skupinami uživatelů. Projekt bude zahrnovat návrh a implementaci celé služby včetně základního frontendu pro interakci uživatelů.",
+  "main": "server/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
