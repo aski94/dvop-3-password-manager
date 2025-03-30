@@ -10,29 +10,7 @@ app.use(cors({
     "origin": "*"
 }));
 
-// Data
-let groups = [];
-groups.push({id: 1, name: "pristupy spolecne", userIdList: [1, 2]});
-groups.push({id: 2, name: "pristupy ales", userIdList: [1]});
-let groupCount = groups.length + 1;
-
-let users = [];
-users.push({id: 1, username: "ales", password: "Heslo123"});
-users.push({id: 2, username: "pepa", password: "heslicko"});
-let userCount = users.length + 1;
-
-let passwords = [];
-passwords.push({id: 1, description: "pristup na seznam.cz", groupId: 2, username: "alesau", password: "Heslo123"});
-passwords.push({id: 2, description: "pristup skola", groupId: 1, username: "user", password: "Pass"});
-passwords.push({id: 3, description: "pristup skola2", groupId: 1, username: "user2", password: "Pass2"});
-passwords.push({id: 4, description: "pristup skola3", groupId: 1, username: "user3", password: "Pass3"});
-let passwordsCount = passwords.length + 1;
-
-let logs = [];
-logs.push({date: '2025-03-01 10:00:00', userId: 1, description: "Added password Id 1"});
-logs.push({date: '2025-03-01 10:00:01', userId: 1, description: "Added password Id 2"});
-
-function authentication(req, res, next) {
+async function authentication(req, res, next) {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -42,9 +20,13 @@ function authentication(req, res, next) {
 
     const [username, password] = Buffer.from(authHeader.split(" ")[1], "base64").toString().split(":");
 
-    const user = users.find(l => l.username == username && l.password == password);
+    const userQuery = await pg.query(`SELECT *
+                                      FROM "user"
+                                      WHERE "username" = $1
+                                        AND "password" = $2`, [username, password]);
+    const user = userQuery.rows[0];
     if (user) {
-        req.userId = user.id;
+        req.userId = user.user_id;
         next();
     } else {
         res.setHeader("WWW-Authenticate", "Basic");
@@ -100,7 +82,7 @@ app.post("/passwords", async (req, res) => {
 app.get("/groups", async (req, res) => {
     const result = await pg.query(
         `SELECT *
-         FROM "group"
+         FROM [group]
                   JOIN "group_user" ON "group"."group_id" = "group_user"."group_id"
          WHERE "group_user"."user_id" = $1`,
         [req.userId]
