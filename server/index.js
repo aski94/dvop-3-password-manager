@@ -9,14 +9,49 @@ const JWT_SECRET = "verySecurePassword123";
 app.use(express.json());
 app.use(cors({origin: "*"}));
 
-// Login endpoint - returns JWT token
+app.post("/register", async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ error: "Username and password required" });
+    }
+
+    if (username.length < 6) {
+        return res.status(400).json({ error: "Username must be at least 6 characters long" });
+    }
+
+    if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+    }
+
+    try {
+        const userExists = await pg.query(`SELECT 1 FROM "user" WHERE "username" = $1`, [username]);
+        if (userExists.rows.length > 0) {
+            return res.status(409).json({ error: "Username already exists" });
+        }
+
+        const result = await pg.query(
+            `INSERT INTO "user" ("username", "password") VALUES ($1, $2) RETURNING user_id`,
+            [username, password]
+        );
+
+        res.status(201).json({ message: "User registered", userId: result.rows[0].user_id });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 app.post("/login", async (req, res) => {
     const {username, password} = req.body;
 
-    const userQuery = await pg.query(`SELECT *
-                                      FROM "user"
-                                      WHERE "username" = $1
-                                        AND "password" = $2`, [username, password]);
+    const userQuery = await pg.query(
+        `SELECT *
+         FROM "user"
+         WHERE "username" = $1
+           AND "password" = $2`,
+        [username, password]
+    );
     const user = userQuery.rows[0];
 
     if (user) {
@@ -27,7 +62,6 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// JWT authentication middleware
 async function authentication(req, res, next) {
     const authHeader = req.headers.authorization;
 
@@ -48,7 +82,6 @@ async function authentication(req, res, next) {
 app.use("/", express.static("./client"));
 app.use(authentication);
 
-// All your other routes stay the same
 app.get("/users", async (req, res) => {
     const result = await pg.query(`SELECT *
                                    FROM "user"`);
@@ -56,29 +89,33 @@ app.get("/users", async (req, res) => {
 });
 
 app.get("/passwords", async (req, res) => {
-    const result = await pg.query(`SELECT "password"."password_id",
-                                          "password"."description",
-                                          "password"."group_id",
-                                          "password"."username"
-                                   FROM "password"
-                                            JOIN "group_user" on "password"."group_id" = "group_user"."group_id"
-                                   WHERE "group_user"."user_id" = $1`, [req.userId]);
+    const result = await pg.query(
+        `SELECT "password"."password_id", "password"."description", "password"."group_id", "password"."username"
+         FROM "password"
+                  JOIN "group_user" on "password"."group_id" = "group_user"."group_id"
+         WHERE "group_user"."user_id" = $1`,
+        [req.userId]
+    );
     res.json(result.rows);
 });
 
 app.get("/passwords/:id", async (req, res) => {
-    const result = await pg.query(`SELECT *
-                                   FROM "password"
-                                            JOIN "group_user" ON "password"."group_id" = "group_user"."group_id"
-                                   WHERE "password_id" = $1
-                                     AND "group_user"."user_id" = $2`, [req.params.id, req.userId]);
+    const result = await pg.query(
+        `SELECT *
+         FROM "password"
+                  JOIN "group_user" ON "password"."group_id" = "group_user"."group_id"
+         WHERE "password_id" = $1
+           AND "group_user"."user_id" = $2`,
+        [req.params.id, req.userId]
+    );
     res.json(result.rows[0]);
 });
 
 app.post("/passwords", async (req, res) => {
     const {description, group_id, username, password} = req.body;
     const result = await pg.query(
-        'INSERT INTO "password" ("description", "group_id", "username", "password") VALUES ($1, $2, $3, $4) RETURNING *',
+        `INSERT INTO "password" ("description", "group_id", "username", "password")
+         VALUES ($1, $2, $3, $4) RETURNING *`,
         [description, group_id, username, password]
     );
     res.json(result.rows[0]);

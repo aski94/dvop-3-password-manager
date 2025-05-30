@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Dokument</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Document</title>
 
     <style>
         .logout {
@@ -12,7 +12,7 @@
             top: 10px;
         }
 
-        #loginForm, #mainContent {
+        #loginForm, #registerForm, #mainContent {
             display: none;
         }
     </style>
@@ -22,10 +22,21 @@
 <div id="loginForm">
     <h2>Login</h2>
     <form id="login">
-        <input type="text" id="loginUsername" placeholder="Username" required>
-        <input type="password" id="loginPassword" placeholder="Password" required>
+        <input type="text" id="loginUsername" placeholder="Username" required/>
+        <input type="password" id="loginPassword" placeholder="Password" required/>
         <button type="submit">Login</button>
     </form>
+    <p>Don't have an account? <a href="#" id="showRegister">Register now</a></p>
+</div>
+
+<div id="registerForm">
+    <h2>Register</h2>
+    <form id="register">
+        <input type="text" id="registerUsername" placeholder="Username" required/>
+        <input type="password" id="registerPassword" placeholder="Password" required/>
+        <button type="submit">Register</button>
+    </form>
+    <p>Already have an account? <a href="#" id="showLogin">Login here</a></p>
 </div>
 
 <div id="mainContent">
@@ -36,9 +47,9 @@
 
     <h2>Add New Password</h2>
     <form id="passwordForm">
-        <input type="text" id="newPassDesc" placeholder="Description" required>
-        <input type="text" id="newPassUser" placeholder="Username" required>
-        <input type="password" id="newPassPass" placeholder="Password" required>
+        <input type="text" id="newPassDesc" placeholder="Description" required/>
+        <input type="text" id="newPassUser" placeholder="Username" required/>
+        <input type="password" id="newPassPass" placeholder="Password" required/>
         <select id="newPassGroup"></select>
         <button type="submit">Add Password</button>
     </form>
@@ -47,11 +58,13 @@
 <script>
     const API_BASE = "http://localhost:3000";
     const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
     const mainContent = document.getElementById("mainContent");
 
     const logout = () => {
         localStorage.removeItem("token");
         loginForm.style.display = "block";
+        registerForm.style.display = "none";
         mainContent.style.display = "none";
         document.getElementById("loginUsername").value = "";
         document.getElementById("loginPassword").value = "";
@@ -101,14 +114,19 @@
         });
     };
 
-    const token = localStorage.getItem("token");
+    document.getElementById("showRegister").addEventListener("click", (e) => {
+        e.preventDefault();
+        loginForm.style.display = "none";
+        registerForm.style.display = "block";
+        mainContent.style.display = "none";
+    });
 
-    if (token) {
-        scheduleAutoLogout(token);
-        runApp();
-    } else {
+    document.getElementById("showLogin").addEventListener("click", (e) => {
+        e.preventDefault();
+        registerForm.style.display = "none";
         loginForm.style.display = "block";
-    }
+        mainContent.style.display = "none";
+    });
 
     document.getElementById("login").addEventListener("submit", (e) => {
         e.preventDefault();
@@ -118,7 +136,7 @@
         fetch(`${API_BASE}/login`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({username, password})
+            body: JSON.stringify({username, password}),
         })
             .then(res => {
                 if (!res.ok) throw new Error("Login failed");
@@ -132,6 +150,43 @@
             })
             .catch(err => alert("Login error: " + err.message));
     });
+
+    document.getElementById("register").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const username = document.getElementById("registerUsername").value;
+        const password = document.getElementById("registerPassword").value;
+
+        fetch(`${API_BASE}/register`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username, password}),
+        })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(data => {
+                        throw new Error(data.error || "Registration failed");
+                    });
+                }
+                return res.json();
+            })
+            .then(() => {
+                alert("Registration successful! Please login.");
+                registerForm.style.display = "none";
+                loginForm.style.display = "block";
+                document.getElementById("registerUsername").value = "";
+                document.getElementById("registerPassword").value = "";
+            })
+            .catch(err => alert("Registration error: " + err.message));
+    });
+
+    const token = localStorage.getItem("token");
+
+    if (token) {
+        scheduleAutoLogout(token);
+        runApp();
+    } else {
+        loginForm.style.display = "block";
+    }
 
     function runApp() {
         mainContent.style.display = "block";
