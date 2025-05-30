@@ -3,118 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Document</title>
+    <title>Dokument</title>
+
+    <style>
+        .logout {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+        }
+
+        #loginForm, #mainContent {
+            display: none;
+        }
+    </style>
 </head>
 <body>
-<h2>Passwords:</h2>
-<div id="passwords"></div>
 
-<h2>Add New Password</h2>
-<form id="passwordForm">
-    <input type="text" id="newPassDesc" placeholder="Description" required>
-    <input type="text" id="newPassUser" placeholder="Username" required>
-    <input type="password" id="newPassPass" placeholder="Password" required>
-    <select id="newPassGroup"></select>
-    <button type="submit">Add Password</button>
-</form>
+<div id="loginForm">
+    <h2>Login</h2>
+    <form id="login">
+        <input type="text" id="loginUsername" placeholder="Username" required>
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+</div>
+
+<div id="mainContent">
+    <button class="logout">Logout</button>
+
+    <h2>Passwords:</h2>
+    <div id="passwords"></div>
+
+    <h2>Add New Password</h2>
+    <form id="passwordForm">
+        <input type="text" id="newPassDesc" placeholder="Description" required>
+        <input type="text" id="newPassUser" placeholder="Username" required>
+        <input type="password" id="newPassPass" placeholder="Password" required>
+        <select id="newPassGroup"></select>
+        <button type="submit">Add Password</button>
+    </form>
+</div>
 
 <script>
-    const groupSelectElement = document.querySelector("#newPassGroup");
+    const API_BASE = "http://localhost:3000";
+    const loginForm = document.getElementById("loginForm");
+    const mainContent = document.getElementById("mainContent");
 
-    // Function to refresh the group select options
-    const refreshGroups = () => {
-        fetch("http://localhost:3000/groups", {
-            method: "GET",
-            mode: "cors",
-        })
-            .then(response => response.json())
-            .then(data => {
-                groupSelectElement.innerHTML = "";
-                for (let group of data) {
-                    groupSelectElement.innerHTML += `<option value="${group.group_id}">${group.name}</option>`;
-                }
-            })
-            .catch(error => console.log(error));
+    const logout = () => {
+        localStorage.removeItem("token");
+        loginForm.style.display = "block";
+        mainContent.style.display = "none";
+        document.getElementById("loginUsername").value = "";
+        document.getElementById("loginPassword").value = "";
     };
 
-    refreshGroups();
+    const parseJwt = (token) => {
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+            ).join(''));
+            return JSON.parse(jsonPayload);
+        } catch (e) {
+            return null;
+        }
+    };
 
-    const passwordsElement = document.querySelector("#passwords");
-
-    // Fetch password list
-    const fetchPasswords = (showId, visiblePass = "") => {
-        fetch("http://localhost:3000/passwords", {
-            method: "GET",
-            mode: "cors"
-        })
-            .then(response => response.json())
-            .then(data => {
-                passwordsElement.innerHTML = "<ul>";
-                for (let password of data) {
-                    let tmp = ` ***** / <button showPassword="${password.password_id}">🕶️️</button>`;
-                    if (password.password_id == showId) {
-                        tmp = `${visiblePass} / <button showPassword="0">👁️️</button>`;
-                    }
-                    passwordsElement.innerHTML += `<li>${password.password_id} / ${password.description} / ${password.username} / ${tmp}</li>`;
-                }
-                passwordsElement.innerHTML += "</ul>";
-            })
-            .catch(error => console.log(error));
-    }
-
-    // Fetch single password
-    const fetchPassword = (id) => {
-        fetch("http://localhost:3000/passwords/" + id, {
-            method: "GET",
-            mode: "cors"
-        })
-            .then(response => response.json())
-            .then(data => {
-                fetchPasswords(id, data.password);
-            })
-            .catch(error => console.log(error));
-    }
-
-    fetchPasswords();
-
-    document.addEventListener("click", (e) => {
-        let attr = e.target.getAttribute("showPassword");
-        if (attr) {
-            if (attr === "0") {
-                // Reset to hidden passwords
-                fetchPasswords();
+    const scheduleAutoLogout = (token) => {
+        const decoded = parseJwt(token);
+        if (decoded && decoded.exp) {
+            const expiresAt = decoded.exp * 1000;
+            const now = Date.now();
+            const timeLeft = expiresAt - now;
+            if (timeLeft > 0) {
+                setTimeout(() => {
+                    logout();
+                }, timeLeft);
             } else {
-                // Fetch only the specific password
-                fetchPassword(attr);
+                logout();
             }
         }
-    });
+    };
 
-    const newPasswordForm = document.querySelector("#passwordForm");
-    newPasswordForm.addEventListener("submit", (e) => {
+    const fetchWithAuth = (url, options = {}) => {
+        const token = localStorage.getItem("token");
+        options.headers = {
+            ...(options.headers || {}),
+            "Authorization": `Bearer ${token}`
+        };
+        return fetch(url, options).then(res => {
+            if (res.status === 401) {
+                logout();
+                return Promise.reject("Session expired");
+            }
+            return res;
+        });
+    };
+
+    const token = localStorage.getItem("token");
+
+    if (token) {
+        scheduleAutoLogout(token);
+        runApp();
+    } else {
+        loginForm.style.display = "block";
+    }
+
+    document.getElementById("login").addEventListener("submit", (e) => {
         e.preventDefault();
+        const username = document.getElementById("loginUsername").value;
+        const password = document.getElementById("loginPassword").value;
 
-        fetch("http://localhost:3000/passwords", {
+        fetch(`${API_BASE}/login`, {
             method: "POST",
-            mode: "cors",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                description: document.getElementById("newPassDesc").value,
-                username: document.getElementById("newPassUser").value,
-                password: document.getElementById("newPassPass").value,
-                group_id: document.getElementById("newPassGroup").value
-            })
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username, password})
         })
-            .then(response => response.json())
-            .then(() => {
-                fetchPasswords();
-                newPasswordForm.reset();
+            .then(res => {
+                if (!res.ok) throw new Error("Login failed");
+                return res.json();
             })
-            .catch(error => console.log(error));
+            .then(data => {
+                localStorage.setItem("token", data.token);
+                loginForm.style.display = "none";
+                scheduleAutoLogout(data.token);
+                runApp();
+            })
+            .catch(err => alert("Login error: " + err.message));
     });
 
+    function runApp() {
+        mainContent.style.display = "block";
+
+        const groupSelectElement = document.querySelector("#newPassGroup");
+        const passwordsElement = document.querySelector("#passwords");
+
+        const refreshGroups = () => {
+            fetchWithAuth(`${API_BASE}/groups`)
+                .then(res => res.json())
+                .then(data => {
+                    groupSelectElement.innerHTML = "";
+                    for (let group of data) {
+                        groupSelectElement.innerHTML += `<option value="${group.group_id}">${group.name}</option>`;
+                    }
+                });
+        };
+
+        const fetchPasswords = (showId, visiblePass = "") => {
+            fetchWithAuth(`${API_BASE}/passwords`)
+                .then(res => res.json())
+                .then(data => {
+                    passwordsElement.innerHTML = "<ul>";
+                    for (let password of data) {
+                        let tmp = ` ***** / <button showPassword="${password.password_id}">🕶️️</button>`;
+                        if (password.password_id == showId) {
+                            tmp = `${visiblePass} / <button showPassword="0">👁️️</button>`;
+                        }
+                        passwordsElement.innerHTML += `<li>${password.password_id} / ${password.description} / ${password.username} / ${tmp}</li>`;
+                    }
+                    passwordsElement.innerHTML += "</ul>";
+                });
+        };
+
+        const fetchPassword = (id) => {
+            fetchWithAuth(`${API_BASE}/passwords/${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    fetchPasswords(id, data.password);
+                });
+        };
+
+        fetchPasswords();
+        refreshGroups();
+
+        document.addEventListener("click", (e) => {
+            let attr = e.target.getAttribute("showPassword");
+            if (attr) {
+                if (attr === "0") {
+                    fetchPasswords();
+                } else {
+                    fetchPassword(attr);
+                }
+            }
+        });
+
+        const newPasswordForm = document.querySelector("#passwordForm");
+        newPasswordForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+
+            fetchWithAuth(`${API_BASE}/passwords`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    description: document.getElementById("newPassDesc").value,
+                    username: document.getElementById("newPassUser").value,
+                    password: document.getElementById("newPassPass").value,
+                    group_id: document.getElementById("newPassGroup").value
+                })
+            })
+                .then(res => res.json())
+                .then(() => {
+                    fetchPasswords();
+                    newPasswordForm.reset();
+                });
+        });
+
+        document.querySelector(".logout").addEventListener("click", logout);
+    }
 </script>
 
 </body>

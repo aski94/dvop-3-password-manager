@@ -1,53 +1,61 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const pg = require("./my-pg.js");
 
 const app = express();
+const JWT_SECRET = "verySecurePassword123";
 
 app.use(express.json());
+app.use(cors({origin: "*"}));
 
-app.use(cors({
-    "origin": "*"
-}));
-
-async function authentication(req, res, next) {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-        res.setHeader("WWW-Authenticate", "Basic");
-        return res.status(401).send("You are not authenticated!");
-    }
-
-    const [username, password] = Buffer.from(authHeader.split(" ")[1], "base64").toString().split(":");
+// Login endpoint - returns JWT token
+app.post("/login", async (req, res) => {
+    const {username, password} = req.body;
 
     const userQuery = await pg.query(`SELECT *
                                       FROM "user"
                                       WHERE "username" = $1
                                         AND "password" = $2`, [username, password]);
     const user = userQuery.rows[0];
+
     if (user) {
-        req.userId = user.user_id;
-        next();
+        const token = jwt.sign({userId: user.user_id}, JWT_SECRET, {expiresIn: "30m"});
+        res.json({token});
     } else {
-        res.setHeader("WWW-Authenticate", "Basic");
-        return res.status(401).send("You are not authenticated!");
+        res.status(401).json({error: "Invalid credentials"});
+    }
+});
+
+// JWT authentication middleware
+async function authentication(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({error: "Missing or invalid token"});
+    }
+
+    const token = authHeader.split(" ")[1];
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.userId = decoded.userId;
+        next();
+    } catch (err) {
+        return res.status(401).json({error: "Invalid or expired token"});
     }
 }
 
-app.use(authentication)
-app.use("/", express.static("./client"))
+app.use("/", express.static("./client"));
+app.use(authentication);
 
-
-// Endpoint GET /users
+// All your other routes stay the same
 app.get("/users", async (req, res) => {
     const result = await pg.query(`SELECT *
                                    FROM "user"`);
     res.json(result.rows);
 });
 
-// Endpoint GET /passwords (without showing actual passwords)
 app.get("/passwords", async (req, res) => {
-    console.log("Authenticated user ID:", req.userId);
     const result = await pg.query(`SELECT "password"."password_id",
                                           "password"."description",
                                           "password"."group_id",
@@ -58,7 +66,6 @@ app.get("/passwords", async (req, res) => {
     res.json(result.rows);
 });
 
-// Endpoint GET /passwords/:id (showing only password)
 app.get("/passwords/:id", async (req, res) => {
     const result = await pg.query(`SELECT *
                                    FROM "password"
@@ -68,7 +75,6 @@ app.get("/passwords/:id", async (req, res) => {
     res.json(result.rows[0]);
 });
 
-// Endpoint POST /passwords (create a new password)
 app.post("/passwords", async (req, res) => {
     const {description, group_id, username, password} = req.body;
     const result = await pg.query(
@@ -78,7 +84,6 @@ app.post("/passwords", async (req, res) => {
     res.json(result.rows[0]);
 });
 
-// Endpoint GET /groups
 app.get("/groups", async (req, res) => {
     const result = await pg.query(
         `SELECT *
@@ -90,7 +95,6 @@ app.get("/groups", async (req, res) => {
     res.json(result.rows);
 });
 
-// Endpoint GET /logs
 app.get("/logs", async (req, res) => {
     const result = await pg.query(
         `SELECT *
