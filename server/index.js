@@ -30,17 +30,36 @@ app.post("/register", async (req, res) => {
             return res.status(409).json({ error: "Username already exists" });
         }
 
-        const result = await pg.query(
+        await pg.query('BEGIN');
+
+        const userResult = await pg.query(
             `INSERT INTO "user" ("username", "password") VALUES ($1, $2) RETURNING user_id`,
             [username, password]
         );
+        const userId = userResult.rows[0].user_id;
 
-        res.status(201).json({ message: "User registered", userId: result.rows[0].user_id });
+        const groupName = `${username}'s Vault`;
+        const groupResult = await pg.query(
+            `INSERT INTO "group" ("name") VALUES ($1) RETURNING group_id`,
+            [groupName]
+        );
+        const groupId = groupResult.rows[0].group_id;
+
+        await pg.query(
+            `INSERT INTO "group_user" ("group_id", "user_id") VALUES ($1, $2)`,
+            [groupId, userId]
+        );
+
+        await pg.query('COMMIT');
+
+        res.status(201).json({ message: "User registered", userId });
     } catch (error) {
+        await pg.query('ROLLBACK');
         console.error(error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
+
 
 app.post("/login", async (req, res) => {
     const {username, password} = req.body;
