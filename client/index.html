@@ -3,23 +3,36 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>Document</title>
-
+    <title>Password Vault</title>
     <style>
-        .logout {
+        .user-info {
             position: absolute;
-            right: 10px;
             top: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
         }
-
-        #loginForm, #registerForm, #mainContent {
+        .hidden {
             display: none;
+        }
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .message {
+            color: red;
+        }
+        .success {
+            color: green;
         }
     </style>
 </head>
 <body>
 
-<div id="loginForm">
+<div id="loginForm" class="hidden">
     <h2>Login</h2>
     <form id="login">
         <input type="text" id="loginUsername" placeholder="Username" required/>
@@ -29,7 +42,7 @@
     <p>Don't have an account? <a href="#" id="showRegister">Register now</a></p>
 </div>
 
-<div id="registerForm">
+<div id="registerForm" class="hidden">
     <h2>Register</h2>
     <form id="register">
         <input type="text" id="registerUsername" placeholder="Username" required/>
@@ -39,8 +52,11 @@
     <p>Already have an account? <a href="#" id="showLogin">Login here</a></p>
 </div>
 
-<div id="mainContent">
-    <button class="logout">Logout</button>
+<div id="mainContent" class="hidden">
+    <div id="user" class="user-info">
+        <span id="usernameDisplay"></span>
+        <button id="logoutBtn">Logout</button>
+    </div>
 
     <h2>Passwords:</h2>
     <div id="passwords"></div>
@@ -53,19 +69,40 @@
         <select id="newPassGroup"></select>
         <button type="submit">Add Password</button>
     </form>
+
+    <h2>Create New Group</h2>
+    <form id="groupForm">
+        <input type="text" id="newGroupName" placeholder="Group Name" required/>
+        <button type="submit">Create Group</button>
+    </form>
+
+    <h2>Add User to Group</h2>
+    <select id="selectGroupToAddUser"></select><br/><br/>
+    <input type="text" id="addUsername" placeholder="Enter exact username"/>
+    <button id="addUserBtn">Add User to Group</button>
+    <p id="addUserMessage" class="message"></p>
 </div>
 
 <script>
     const API_BASE = "http://localhost:3000";
+
     const loginForm = document.getElementById("loginForm");
     const registerForm = document.getElementById("registerForm");
     const mainContent = document.getElementById("mainContent");
+    const usernameDisplay = document.getElementById("usernameDisplay");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    const addUsernameInput = document.getElementById("addUsername");
+    const addUserBtn = document.getElementById("addUserBtn");
+    const addUserMessage = document.getElementById("addUserMessage");
+    const selectGroupToAddUser = document.getElementById("selectGroupToAddUser");
 
     const logout = () => {
         localStorage.removeItem("token");
-        loginForm.style.display = "block";
-        registerForm.style.display = "none";
-        mainContent.style.display = "none";
+        loginForm.classList.remove("hidden");
+        registerForm.classList.add("hidden");
+        mainContent.classList.add("hidden");
+        usernameDisplay.textContent = "";
         document.getElementById("loginUsername").value = "";
         document.getElementById("loginPassword").value = "";
     };
@@ -74,10 +111,7 @@
         try {
             const base64Url = token.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-            ).join(''));
-            return JSON.parse(jsonPayload);
+            return JSON.parse(atob(base64));
         } catch (e) {
             return null;
         }
@@ -114,21 +148,21 @@
         });
     };
 
-    document.getElementById("showRegister").addEventListener("click", (e) => {
+    document.getElementById("showRegister").addEventListener("click", e => {
         e.preventDefault();
-        loginForm.style.display = "none";
-        registerForm.style.display = "block";
-        mainContent.style.display = "none";
+        loginForm.classList.add("hidden");
+        registerForm.classList.remove("hidden");
+        mainContent.classList.add("hidden");
     });
 
-    document.getElementById("showLogin").addEventListener("click", (e) => {
+    document.getElementById("showLogin").addEventListener("click", e => {
         e.preventDefault();
-        registerForm.style.display = "none";
-        loginForm.style.display = "block";
-        mainContent.style.display = "none";
+        registerForm.classList.add("hidden");
+        loginForm.classList.remove("hidden");
+        mainContent.classList.add("hidden");
     });
 
-    document.getElementById("login").addEventListener("submit", (e) => {
+    document.getElementById("login").addEventListener("submit", e => {
         e.preventDefault();
         const username = document.getElementById("loginUsername").value;
         const password = document.getElementById("loginPassword").value;
@@ -144,14 +178,14 @@
             })
             .then(data => {
                 localStorage.setItem("token", data.token);
-                loginForm.style.display = "none";
+                loginForm.classList.add("hidden");
                 scheduleAutoLogout(data.token);
                 runApp();
             })
             .catch(err => alert("Login error: " + err.message));
     });
 
-    document.getElementById("register").addEventListener("submit", (e) => {
+    document.getElementById("register").addEventListener("submit", e => {
         e.preventDefault();
         const username = document.getElementById("registerUsername").value;
         const password = document.getElementById("registerPassword").value;
@@ -171,8 +205,8 @@
             })
             .then(() => {
                 alert("Registration successful! Please login.");
-                registerForm.style.display = "none";
-                loginForm.style.display = "block";
+                registerForm.classList.add("hidden");
+                loginForm.classList.remove("hidden");
                 document.getElementById("registerUsername").value = "";
                 document.getElementById("registerPassword").value = "";
             })
@@ -185,22 +219,29 @@
         scheduleAutoLogout(token);
         runApp();
     } else {
-        loginForm.style.display = "block";
+        loginForm.classList.remove("hidden");
     }
 
     function runApp() {
-        mainContent.style.display = "block";
+        mainContent.classList.remove("hidden");
 
         const groupSelectElement = document.querySelector("#newPassGroup");
         const passwordsElement = document.querySelector("#passwords");
+
+        const payload = parseJwt(localStorage.getItem("token"));
+        usernameDisplay.textContent = payload?.username ? `Logged in as: ${payload.username}` : "Logged in";
+
+        logoutBtn.onclick = logout;
 
         const refreshGroups = () => {
             fetchWithAuth(`${API_BASE}/groups`)
                 .then(res => res.json())
                 .then(data => {
                     groupSelectElement.innerHTML = "";
+                    selectGroupToAddUser.innerHTML = "";
                     for (let group of data) {
                         groupSelectElement.innerHTML += `<option value="${group.group_id}">${group.name}</option>`;
+                        selectGroupToAddUser.innerHTML += `<option value="${group.group_id}">${group.name}</option>`;
                     }
                 });
         };
@@ -209,15 +250,17 @@
             fetchWithAuth(`${API_BASE}/passwords`)
                 .then(res => res.json())
                 .then(data => {
-                    passwordsElement.innerHTML = "<ul>";
+                    let html = "<ul>";
+                    html += `<li><strong>Password ID / Group Name / Description / Username / Password</strong></li>`;
                     for (let password of data) {
                         let tmp = ` ***** / <button showPassword="${password.password_id}">🕶️️</button>`;
                         if (password.password_id == showId) {
                             tmp = `${visiblePass} / <button showPassword="0">👁️️</button>`;
                         }
-                        passwordsElement.innerHTML += `<li>${password.password_id} / ${password.description} / ${password.username} / ${tmp}</li>`;
+                        html += `<li>${password.password_id} / ${password.group_name} / ${password.description} / ${password.username} / ${tmp}</li>`;
                     }
-                    passwordsElement.innerHTML += "</ul>";
+                    html += "</ul>";
+                    passwordsElement.innerHTML = html;
                 });
         };
 
@@ -229,10 +272,10 @@
                 });
         };
 
-        fetchPasswords();
         refreshGroups();
+        fetchPasswords();
 
-        document.addEventListener("click", (e) => {
+        document.addEventListener("click", e => {
             let attr = e.target.getAttribute("showPassword");
             if (attr) {
                 if (attr === "0") {
@@ -244,7 +287,7 @@
         });
 
         const newPasswordForm = document.querySelector("#passwordForm");
-        newPasswordForm.addEventListener("submit", (e) => {
+        newPasswordForm.addEventListener("submit", e => {
             e.preventDefault();
 
             fetchWithAuth(`${API_BASE}/passwords`, {
@@ -266,7 +309,58 @@
                 });
         });
 
-        document.querySelector(".logout").addEventListener("click", logout);
+        document.getElementById("groupForm").addEventListener("submit", e => {
+            e.preventDefault();
+            const groupName = document.getElementById("newGroupName").value.trim();
+            if (!groupName) return;
+
+            fetchWithAuth(`${API_BASE}/groups`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({name: groupName})
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error("Failed to create group");
+                    return res.json();
+                })
+                .then(() => {
+                    alert("Group created");
+                    document.getElementById("newGroupName").value = "";
+                    refreshGroups();
+                })
+                .catch(err => alert("Error creating group: " + err.message));
+        });
+
+        addUserBtn.addEventListener("click", () => {
+            const username = addUsernameInput.value.trim();
+            const groupId = selectGroupToAddUser.value;
+            if (!username || !groupId) {
+                addUserMessage.classList.remove("success");
+                addUserMessage.textContent = "Please select a group and enter a username.";
+                return;
+            }
+            addUserMessage.textContent = "";
+            fetchWithAuth(`${API_BASE}/groups/${groupId}/addUserByName`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({username}),
+            })
+                .then(res => {
+                    if (!res.ok) return res.json().then(data => {
+                        throw new Error(data.error || "Failed to add user");
+                    });
+                    return res.json();
+                })
+                .then(data => {
+                    addUserMessage.classList.add("success");
+                    addUserMessage.textContent = `User '${username}' added to Vault '${data.groupName}'`;
+                    addUsernameInput.value = "";
+                })
+                .catch(err => {
+                    addUserMessage.classList.remove("success");
+                    addUserMessage.textContent = `Error: ${err.message}`;
+                });
+        });
     }
 </script>
 

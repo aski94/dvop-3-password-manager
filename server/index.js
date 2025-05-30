@@ -10,60 +10,52 @@ app.use(express.json());
 app.use(cors({origin: "*"}));
 
 app.post("/register", async (req, res) => {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).json({ error: "Username and password required" });
-    }
-
-    if (username.length < 6) {
-        return res.status(400).json({ error: "Username must be at least 6 characters long" });
-    }
-
-    if (password.length < 8) {
-        return res.status(400).json({ error: "Password must be at least 8 characters long" });
-    }
+    const {username, password} = req.body;
+    if (!username || !password) return res.status(400).json({error: "Username and password required"});
+    if (username.length < 6) return res.status(400).json({error: "Username must be at least 6 characters long"});
+    if (password.length < 8) return res.status(400).json({error: "Password must be at least 8 characters long"});
 
     try {
-        const userExists = await pg.query(`SELECT 1 FROM "user" WHERE "username" = $1`, [username]);
-        if (userExists.rows.length > 0) {
-            return res.status(409).json({ error: "Username already exists" });
-        }
+        const userExists = await pg.query(`SELECT 1
+                                           FROM "user"
+                                           WHERE "username" = $1`, [username]);
+        if (userExists.rows.length > 0) return res.status(409).json({error: "Username already exists"});
 
-        await pg.query('BEGIN');
+        await pg.query("BEGIN");
 
         const userResult = await pg.query(
-            `INSERT INTO "user" ("username", "password") VALUES ($1, $2) RETURNING user_id`,
+            `INSERT INTO "user" ("username", "password")
+             VALUES ($1, $2) RETURNING user_id`,
             [username, password]
         );
         const userId = userResult.rows[0].user_id;
 
         const groupName = `${username}'s Vault`;
         const groupResult = await pg.query(
-            `INSERT INTO "group" ("name") VALUES ($1) RETURNING group_id`,
+            `INSERT INTO "group" ("name")
+             VALUES ($1) RETURNING group_id`,
             [groupName]
         );
         const groupId = groupResult.rows[0].group_id;
 
         await pg.query(
-            `INSERT INTO "group_user" ("group_id", "user_id") VALUES ($1, $2)`,
+            `INSERT INTO "group_user" ("group_id", "user_id")
+             VALUES ($1, $2)`,
             [groupId, userId]
         );
 
-        await pg.query('COMMIT');
+        await pg.query("COMMIT");
 
-        res.status(201).json({ message: "User registered", userId });
+        res.status(201).json({message: "User registered", userId});
     } catch (error) {
-        await pg.query('ROLLBACK');
+        await pg.query("ROLLBACK");
         console.error(error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 });
 
-
 app.post("/login", async (req, res) => {
     const {username, password} = req.body;
-
     const userQuery = await pg.query(
         `SELECT *
          FROM "user"
@@ -72,9 +64,8 @@ app.post("/login", async (req, res) => {
         [username, password]
     );
     const user = userQuery.rows[0];
-
     if (user) {
-        const token = jwt.sign({userId: user.user_id}, JWT_SECRET, {expiresIn: "30m"});
+        const token = jwt.sign({userId: user.user_id, username: user.username}, JWT_SECRET, {expiresIn: "30m"});
         res.json({token});
     } else {
         res.status(401).json({error: "Invalid credentials"});
@@ -83,11 +74,9 @@ app.post("/login", async (req, res) => {
 
 async function authentication(req, res, next) {
     const authHeader = req.headers.authorization;
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return res.status(401).json({error: "Missing or invalid token"});
     }
-
     const token = authHeader.split(" ")[1];
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
@@ -101,18 +90,95 @@ async function authentication(req, res, next) {
 app.use("/", express.static("./client"));
 app.use(authentication);
 
-app.get("/users", async (req, res) => {
-    const result = await pg.query(`SELECT *
-                                   FROM "user"`);
+app.post("/groups/:groupId/addUserByName", async (req, res) => {
+    const {groupId} = req.params;
+    const {username} = req.body;
+    if (!username) return res.status(400).json({error: "Username required"});
+
+    try {
+        const check = await pg.query(
+            `SELECT 1
+             FROM "group_user"
+             WHERE "group_id" = $1
+               AND "user_id" = $2`,
+            [groupId, req.userId]
+        );
+        if (check.rows.length === 0) return res.status(403).json({error: "You are not a member of this group"});
+
+        const userRes = await pg.query(`SELECT user_id
+                                        FROM "user"
+                                        WHERE username = $1`, [username]);
+        if (userRes.rows.length === 0) return res.status(404).json({error: "User not found"});
+        const userIdToAdd = userRes.rows[0].user_id;
+
+        const alreadyMember = await pg.query(
+            `SELECT 1
+             FROM "group_user"
+             WHERE "group_id" = $1
+               AND "user_id" = $2`,
+            [groupId, userIdToAdd]
+        );
+        if (alreadyMember.rows.length > 0) return res.status(409).json({error: "User already in group"});
+
+        await pg.query(`INSERT INTO "group_user" ("group_id", "user_id")
+                        VALUES ($1, $2)`, [groupId, userIdToAdd]);
+
+        const groupRes = await pg.query(`SELECT name
+                                         FROM "group"
+                                         WHERE group_id = $1`, [groupId]);
+
+        res.json({message: "User added to group", groupName: groupRes.rows[0].name});
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({error: "Internal server error"});
+    }
+});
+
+app.get("/users/search", async (req, res) => {
+    const {username} = req.query;
+    if (!username) return res.json([]);
+    const result = await pg.query(
+        `SELECT user_id, username
+         FROM "user"
+         WHERE username ILIKE $1 LIMIT 10`,
+        [`%${username}%`]
+    );
     res.json(result.rows);
+});
+
+app.post("/groups", async (req, res) => {
+    const {name} = req.body;
+    if (!name || name.trim() === "") return res.status(400).json({error: "Group name required"});
+
+    try {
+        await pg.query("BEGIN");
+        const groupResult = await pg.query(
+            `INSERT INTO "group" ("name")
+             VALUES ($1) RETURNING group_id, name`,
+            [name.trim()]
+        );
+        const group = groupResult.rows[0];
+        await pg.query(
+            `INSERT INTO "group_user" ("group_id", "user_id")
+             VALUES ($1, $2)`,
+            [group.group_id, req.userId]
+        );
+        await pg.query("COMMIT");
+        res.status(201).json(group);
+    } catch (err) {
+        await pg.query("ROLLBACK");
+        console.error(err);
+        res.status(500).json({error: "Internal server error"});
+    }
 });
 
 app.get("/passwords", async (req, res) => {
     const result = await pg.query(
-        `SELECT "password"."password_id", "password"."description", "password"."group_id", "password"."username"
-         FROM "password"
-                  JOIN "group_user" on "password"."group_id" = "group_user"."group_id"
-         WHERE "group_user"."user_id" = $1`,
+        `SELECT p.password_id, p.description, p.username, g.name AS group_name
+         FROM "password" p
+                  JOIN "group_user" gu ON p.group_id = gu.group_id
+                  JOIN "group" g ON p.group_id = g.group_id
+         WHERE gu.user_id = $1`,
         [req.userId]
     );
     res.json(result.rows);
@@ -120,11 +186,12 @@ app.get("/passwords", async (req, res) => {
 
 app.get("/passwords/:id", async (req, res) => {
     const result = await pg.query(
-        `SELECT *
-         FROM "password"
-                  JOIN "group_user" ON "password"."group_id" = "group_user"."group_id"
-         WHERE "password_id" = $1
-           AND "group_user"."user_id" = $2`,
+        `SELECT p.password_id, p.description, p.username, p.password, g.name AS group_name
+         FROM "password" p
+                  JOIN "group_user" gu ON p.group_id = gu.group_id
+                  JOIN "group" g ON p.group_id = g.group_id
+         WHERE p.password_id = $1
+           AND gu.user_id = $2`,
         [req.params.id, req.userId]
     );
     res.json(result.rows[0]);
@@ -145,17 +212,6 @@ app.get("/groups", async (req, res) => {
         `SELECT *
          FROM "group"
                   JOIN "group_user" ON "group"."group_id" = "group_user"."group_id"
-         WHERE "group_user"."user_id" = $1`,
-        [req.userId]
-    );
-    res.json(result.rows);
-});
-
-app.get("/logs", async (req, res) => {
-    const result = await pg.query(
-        `SELECT *
-         FROM "log"
-                  JOIN "group_user" ON "log"."group_id" = "group_user"."group_id"
          WHERE "group_user"."user_id" = $1`,
         [req.userId]
     );
