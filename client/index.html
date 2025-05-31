@@ -15,16 +15,20 @@
             gap: 10px;
             font-weight: bold;
         }
+
         .hidden {
             display: none;
         }
+
         ul {
             list-style: none;
             padding-left: 0;
         }
+
         .message {
             color: red;
         }
+
         .success {
             color: green;
         }
@@ -361,6 +365,10 @@
                     addUserMessage.textContent = `Error: ${err.message}`;
                 });
         });
+
+        setInterval(() => {
+            fetchPasswords();
+        }, 5000);
     }
 </script>
 
