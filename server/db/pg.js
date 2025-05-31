@@ -14,4 +14,3 @@ const query = (text, params, callback) => {
 }
 
 module.exports = { query };
-

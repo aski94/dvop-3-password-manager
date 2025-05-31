@@ -1,4 +1,4 @@
 /node_modules/
-/server/my-pg.js
+/server/db/my-pg.js
 /.idea/
 /github-link.txt

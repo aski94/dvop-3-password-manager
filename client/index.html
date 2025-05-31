@@ -171,7 +171,7 @@
         const username = document.getElementById("loginUsername").value;
         const password = document.getElementById("loginPassword").value;
 
-        fetch(`${API_BASE}/login`, {
+        fetch(`${API_BASE}/auth/login`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({username, password}),
@@ -194,7 +194,7 @@
         const username = document.getElementById("registerUsername").value;
         const password = document.getElementById("registerPassword").value;
 
-        fetch(`${API_BASE}/register`, {
+        fetch(`${API_BASE}/auth/register`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({username, password}),
