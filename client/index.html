@@ -101,7 +101,16 @@
     const addUserMessage = document.getElementById("addUserMessage");
     const selectGroupToAddUser = document.getElementById("selectGroupToAddUser");
 
+    let passwordsInterval = null;
+    let appInitialized = false;
+
     const logout = () => {
+        if (passwordsInterval) {
+            clearInterval(passwordsInterval);
+            passwordsInterval = null;
+        }
+        appInitialized = false;
+
         localStorage.removeItem("token");
         loginForm.classList.remove("hidden");
         registerForm.classList.add("hidden");
@@ -218,7 +227,6 @@
     });
 
     const token = localStorage.getItem("token");
-
     if (token) {
         scheduleAutoLogout(token);
         runApp();
@@ -227,6 +235,9 @@
     }
 
     function runApp() {
+        if (appInitialized) return;
+        appInitialized = true;
+
         mainContent.classList.remove("hidden");
 
         const groupSelectElement = document.querySelector("#newPassGroup");
@@ -366,7 +377,7 @@
                 });
         });
 
-        setInterval(() => {
+        passwordsInterval = setInterval(() => {
             fetchPasswords();
         }, 5000);
     }
