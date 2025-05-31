@@ -57,3 +57,15 @@ Tato entita zajišťuje zaznamenávání všech akcí, které proběhnou v syst�
   - `date` (timestamp, not null) – datum a čas akce
   - `group_id` (int, cizí klíč na `group(group_id)`, on delete set null) – skupina, které se záznam týká
   - `description` (text, not null) – popis akce
+
+ # Postup instalace a spuštění 
+
+1. Naklonujte repozitář
+   `git clone <repo-url>`
+3. naistalujte závislosti
+   `npm install`
+4. Nastavte připojení k databázi
+   ve složce server/db se nachází soubour **pg.js**. Zduplikujte ho vyplntě údaje pro připojení k databázi a přejmenujte ho na **my-pg.js**
+6. Spuťte backend
+   `.\server\main.js`
+8. Aplikace bude dostupná na adrese **http://localhost:3000**
