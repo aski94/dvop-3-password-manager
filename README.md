@@ -62,10 +62,11 @@ Tato entita zajišťuje zaznamenávání všech akcí, které proběhnou v syst�
 
 1. Naklonujte repozitář
    `git clone <repo-url>`
-3. naistalujte závislosti
+2. Nainstalujte závislosti
    `npm install`
+3. Vytvořte databázi na základě příkazu v soubouru **database.sql** a případně využijte i ukázková data v soubour **database-data-example.sql**
 4. Nastavte připojení k databázi
    ve složce server/db se nachází soubour **pg.js**. Zduplikujte ho vyplntě údaje pro připojení k databázi a přejmenujte ho na **my-pg.js**
-6. Spuťte backend
+5. Spuťte backend
    `.\server\main.js`
-8. Aplikace bude dostupná na adrese **http://localhost:3000**
+6. Aplikace bude dostupná na adrese **http://localhost:3000**
